@@ -1,6 +1,6 @@
 from qdrant_client import QdrantClient, models
 import logging
-import datetime
+from datetime import datetime
 
 client = QdrantClient(url="http://localhost:6333")
 model_name = "sentence-transformers/all-MiniLM-L6-v2"
@@ -64,15 +64,31 @@ def get_existing_titles():
         offset = scroll_result[-1]
     return titles
 
-def search_documents(query_text):
+def get_available_dates():
     if not client.collection_exists(collection_name):
-        return None
-    search_result = client.query_points(
-        collection_name=collection_name,
-        query=models.Document(text=query_text, model=model_name),
-        limit=3
-    ).points
-    return search_result
+        return set()
+    dates = set()
+    offset = 0
+    while True:
+        scroll_result = client.scroll(
+            collection_name=collection_name,
+            offset=offset,
+            limit=100,
+            with_payload=True,
+            with_vectors=False
+        )
+        if not scroll_result:
+            break
+        for point in scroll_result[0]:
+            payload = point.payload or {}
+            date = datetime.fromisoformat(payload.get("date")).strftime("%d.%m.%y")
+            if date and date not in dates:
+                dates.add(date)
+        if scroll_result[-1] is None:
+            break
+        offset = scroll_result[-1]
+    dates = sorted(dates, key=lambda x: datetime.strptime(x, "%d.%m.%y"))
+    return dates
 
 
 def clear_collection():
@@ -89,3 +105,37 @@ def get_document_by_id(doc_id):
     if not points or len(points) == 0 or points[0] is None:
         return None
     return points[0]
+
+def get_documents_by_date(date_str):
+    if not client.collection_exists(collection_name):
+        return []
+
+    results = []
+    offset = 0
+    while True:
+        scroll_result = client.scroll(
+            collection_name=collection_name,
+            offset=offset,
+            limit=100,
+            with_payload=True,
+            with_vectors=False
+        )
+        if not scroll_result or not scroll_result[0]:
+            break
+
+        for point in scroll_result[0]:
+            payload = point.payload or {}
+            date_iso = payload.get("date")
+            if not date_iso:
+                continue
+            try:
+                point_date = datetime.fromisoformat(date_iso).strftime("%d.%m.%y")
+            except Exception:
+                continue
+            if point_date == date_str:
+                results.append(point)
+
+        if scroll_result[-1] is None:
+            break
+        offset = scroll_result[-1]
+    return results

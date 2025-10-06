@@ -30,10 +30,13 @@ def parse_newest_pages(stop_titles=None):
                 return parsed_docs
 
             content_div = soup.find("div", {'class': 'topic'}).find("div", {'class': 'content'})
+            for tag in content_div.find_all('a'):
+                tag.extract()
             content = unicodedata.normalize("NFKC", content_div.get_text(strip=True))
-
+            content = content.replace("Источник:", "")
+            
             date = dateparser.parse(soup.find("li", {'class': 'date'}).get_text(strip=True))
             
-            parsed_docs.append({"title": title, "content": content, "date": date})
+            parsed_docs.append({"title": title, "content": content, "date": date, "source": article_url})
         i += 1
     return parsed_docs  
