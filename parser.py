@@ -2,6 +2,7 @@ from bs4 import BeautifulSoup
 import requests
 import unicodedata
 import dateparser
+from datetime import datetime, timedelta
 
 
 def parse_newest_pages(stop_titles=None):
@@ -40,3 +41,19 @@ def parse_newest_pages(stop_titles=None):
             parsed_docs.append({"title": title, "content": content, "date": date, "source": article_url})
         i += 1
     return parsed_docs  
+
+def parse_valuables():
+    tickers = [("💲Доллар: ",16),("💶Евро: ",18),("🧧Юань: ",55)]
+    tickers2 = [("💰Золото: ","GCUSD"),("🛢️ Нефть: ","BZUSD"),("🪙 Биткоин: ","BTCUSD")]
+    valuables = "Курс ЦБ:\n"
+    for t in tickers:
+        response = requests.get(f'https://www.cbr.ru/currency_base/daily/')
+        response.raise_for_status()
+        valuables += f"₽{t[0]}{BeautifulSoup(response.text, 'lxml').find("table", {'class': 'data'}).find_all('tr')[t[1]].find_all('td')[4].get_text(strip=True)}\n"
+    valuables+="\nКурс на 07:00 по МСК:\n"
+    for t in tickers2:
+        response = requests.get(f'https://smart-lab.ru/')
+        response.raise_for_status()
+        valuables += f"{t[0]}${BeautifulSoup(response.text, 'lxml').find("tr", {'tkr': t[1]}).find_all('td')[1].get_text()}\n"
+    parsed_prices = [{"prices": valuables, "date": datetime.now()-timedelta(days=1)}]
+    return parsed_prices
