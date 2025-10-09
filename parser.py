@@ -49,7 +49,7 @@ def parse_valuables():
     for t in tickers:
         response = requests.get(f'https://www.cbr.ru/currency_base/daily/')
         response.raise_for_status()
-        valuables += f"₽{t[0]}{BeautifulSoup(response.text, 'lxml').find("table", {'class': 'data'}).find_all('tr')[t[1]].find_all('td')[4].get_text(strip=True)}\n"
+        valuables += f"{t[0]}₽{BeautifulSoup(response.text, 'lxml').find("table", {'class': 'data'}).find_all('tr')[t[1]].find_all('td')[4].get_text(strip=True)}\n"
     valuables+="\nКурс на 07:00 по МСК:\n"
     for t in tickers2:
         response = requests.get(f'https://smart-lab.ru/')
