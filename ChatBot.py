@@ -63,15 +63,16 @@ async def send_daily_summary(user_id: int):
     prices = get_prices_by_date(yesterday)
     valuables = ""
     cbr = ""
+    selected_date = (datetime.now()).strftime("%d.%m.%y")
     if prices:
         for price in prices:
             payload = price.payload or {}
             valuables = payload.get("prices", "")
-            cbr = f" и курс за {(datetime.now()).strftime("%d.%m.%y")}"
+            cbr =  "и курс"
     summary = await summarize_news_list(news_list)
     
     try:
-        await bot.send_message(user_id, f"<b>Сводка новостей за {yesterday}{cbr}:</b>\n\n{valuables}\n{summary}")
+        await bot.send_message(user_id, f"<b>Сводка новостей {cbr} на {selected_date}:</b>\n\n{valuables}\n{summary}", reply_markup=menu_kb)
     except Exception as e:
         logging.error(f"Failed to send daily summary to {user_id}: {e}")
 
