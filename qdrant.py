@@ -1,6 +1,6 @@
 from qdrant_client import QdrantClient, models
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 client = QdrantClient(url="http://localhost:6333")
 model_name = "sentence-transformers/all-MiniLM-L6-v2"
@@ -70,6 +70,22 @@ def get_prices_by_date(date_str):
             break
         offset = scroll_result[-1]
     return results
+
+def delete_old_price_points():
+    cutoff = (datetime.now() - timedelta(days=8)).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    date_filter = models.Filter(
+        must=[
+            models.FieldCondition(
+                key="date",
+                range=models.DatetimeRange(
+                    lt=cutoff
+                )
+            )
+        ]
+    )
+    client.delete_points(collection_name=pricing_collection_name, filter=date_filter)
+    logging.info(f"Deleted points with 'date' before {cutoff} from {pricing_collection_name}")
+
 
 def insert_documents(payload):
     payload = list(reversed(payload))

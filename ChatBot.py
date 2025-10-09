@@ -7,7 +7,7 @@ from aiogram.filters import Command
 from aiogram.enums import ParseMode
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.client.default import DefaultBotProperties
-from qdrant import insert_documents, clear_collection, get_existing_titles, get_available_dates, get_documents_by_date, insert_prices, get_prices_by_date
+from qdrant import insert_documents, clear_collection, get_existing_titles, get_available_dates, get_documents_by_date, insert_prices, get_prices_by_date, delete_old_price_points
 from parser import parse_newest_pages, parse_valuables
 import schedule
 from datetime import datetime, timedelta
@@ -31,7 +31,8 @@ async def run_schedule():
 
 def clear_task():
     cleared = clear_collection()
-    logging.info(f"Collection cleared: {cleared}")
+    delete_old_price_points()
+    logging.info(f"Collection cleared: {cleared}, price collection updated.")
 
 def pricing_task():
     new_docs = parse_valuables()
@@ -134,10 +135,13 @@ async def callbacks_handler(callback: types.CallbackQuery):
             await callback.message.answer("Нет доступных дат для сводки новостей. Возможно, сейчас обновляется список новостей, подождите 5 минут.", reply_markup=menu_kb)
         else:
             user_states[user_id] = BotStates.WAIT_DATE
-            date_buttons = [
-                [InlineKeyboardButton(text=date, callback_data=f"date_{date}")]
-                for date in dates
-            ]
+            
+            today_str = (datetime.now()-timedelta(days=1)).strftime("%d.%m.%y")
+            date_buttons = []
+            for date in dates:
+                button_text = "Сводка на сегодня!" if date == today_str else date
+                date_buttons.append([InlineKeyboardButton(text=button_text, callback_data=f"date_{date}")])
+            
             date_kb = InlineKeyboardMarkup(inline_keyboard=date_buttons)
             await callback.message.answer("Выберите дату сводки новостей:", reply_markup=date_kb)
         await callback.answer()
@@ -164,13 +168,14 @@ async def callbacks_handler(callback: types.CallbackQuery):
         prices = get_prices_by_date(selected_date)
         valuables = ""
         cbr =  ""
+        selected_date = (datetime.strptime(selected_date, "%d.%m.%y")+timedelta(days=1)).strftime("%d.%m.%y")
         if prices:
             for price in prices:
                 payload = price.payload or {}
                 valuables = payload.get("prices", "")
-                cbr =  f" и курс за {(datetime.strptime(selected_date, "%d.%m.%y")+timedelta(days=1)).strftime("%d.%m.%y")}"
+                cbr =  "и курс"
         summary = await summarize_news_list(news_list)
-        await callback.message.answer(f"<b>Сводка новостей за {selected_date}{cbr}:</b>\n\n{valuables}\n{summary}", reply_markup=menu_kb)
+        await callback.message.answer(f"<b>Сводка новостей {cbr} на {selected_date}:</b>\n\n{valuables}\n{summary}", reply_markup=menu_kb)
         user_states.pop(user_id, None)
     else:
         await callback.answer()
