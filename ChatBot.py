@@ -9,7 +9,6 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.client.default import DefaultBotProperties
 from qdrant import insert_documents, clear_collection, get_existing_titles, get_available_dates, get_documents_by_date, insert_prices, get_prices_by_date, delete_old_price_points
 from parser import parse_newest_pages, parse_valuables
-import schedule
 from datetime import datetime, timedelta
 
 async def background_parse_task():
@@ -24,10 +23,7 @@ async def background_parse_task():
         else:
             logging.info("No new documents found by parser.")
 
-async def run_schedule():
-    while True:
-        schedule.run_pending()
-        await asyncio.sleep(1)
+
 
 def clear_task():
     cleared = clear_collection()
@@ -82,9 +78,21 @@ async def daily_summary_task():
             await send_daily_summary(user_id)
 
 
-schedule.every().day.at("00:00").do(clear_task)
-schedule.every().day.at("07:00").do(pricing_task)
-schedule.every().day.at("07:01").do(lambda: asyncio.create_task(daily_summary_task()))
+async def scheduler():
+    while True:
+        now = datetime.now().time()
+        if now.hour == 0 and now.minute == 0:
+            clear_task()
+            await asyncio.sleep(60)
+        elif now.hour == 7 and now.minute == 0:
+            pricing_task()
+            await asyncio.sleep(1)
+            await daily_summary_task()  
+            await asyncio.sleep(60)
+        await asyncio.sleep(30) 
+
+async def run_schedule():
+    await scheduler()
 
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=config.bot_token.get_secret_value(), default=DefaultBotProperties(parse_mode=ParseMode.HTML))
