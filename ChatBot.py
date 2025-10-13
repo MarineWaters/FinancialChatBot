@@ -25,12 +25,12 @@ async def background_parse_task():
 
 
 
-def clear_task():
+async def clear_task():
     cleared = clear_collection()
     delete_old_price_points()
     logging.info(f"Collection cleared: {cleared}, price collection updated.")
 
-def pricing_task():
+async def pricing_task():
     new_docs = parse_valuables()
     if new_docs:
         inserted_count = insert_prices((new_docs))
@@ -79,17 +79,27 @@ async def daily_summary_task():
 
 
 async def scheduler():
+    summary_sent_today = False
     while True:
         now = datetime.now().time()
-        if now.hour == 0 and now.minute == 0:
-            clear_task()
+        if now.hour == 0:
+            await clear_task()
+            summary_sent_today = False
+            await asyncio.sleep(3700)
+        elif now.hour == 7:
+            yesterday = (datetime.now() - timedelta(days=1)).strftime("%d.%m.%y")
+            prices_for_today = get_prices_by_date(yesterday)
+            if prices_for_today and not summary_sent_today:
+                try:
+                    await daily_summary_task()
+                    summary_sent_today = True
+                except Exception as e:
+                    logging.error(f"Error during pricing or summary task: {e}")
+            elif not prices_for_today:
+                logging.info(f"No prices found for today, will retry summary later.")
+                await pricing_task()
+        else:
             await asyncio.sleep(60)
-        elif now.hour == 7 and now.minute == 0:
-            pricing_task()
-            await asyncio.sleep(1)
-            await daily_summary_task()  
-            await asyncio.sleep(60)
-        await asyncio.sleep(30) 
 
 async def run_schedule():
     await scheduler()
