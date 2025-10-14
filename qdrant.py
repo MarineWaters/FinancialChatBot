@@ -72,19 +72,20 @@ def get_prices_by_date(date_str):
     return results
 
 def delete_old_price_points():
-    cutoff = (datetime.now() - timedelta(days=8)).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
-    date_filter = models.Filter(
-        must=[
-            models.FieldCondition(
-                key="date",
-                range=models.DatetimeRange(
-                    lt=cutoff
+    cutoff = (datetime.now() - timedelta(days=8)).replace(hour=0, minute=0, second=0, microsecond=0)
+    cutoff_iso = cutoff.isoformat()
+    client.delete(
+        collection_name=pricing_collection_name,
+        points_selector=models.Filter(
+            must=[
+                models.FieldCondition(
+                    key="date",
+                    range=models.DatetimeRange(lt=cutoff_iso)
                 )
-            )
-        ]
+            ]
+        )
     )
-    client.delete_points(collection_name=pricing_collection_name, filter=date_filter)
-    logging.info(f"Deleted points with 'date' before {cutoff} from {pricing_collection_name}")
+    logging.info(f"Deleted points with 'date' before {cutoff_iso} from {pricing_collection_name}")
 
 
 def insert_documents(payload):

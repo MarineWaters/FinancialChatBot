@@ -11,9 +11,26 @@ from qdrant import insert_documents, clear_collection, get_existing_titles, get_
 from parser import parse_newest_pages, parse_valuables
 from datetime import datetime, timedelta
 
-async def background_parse_task():
+async def background_task():
+    cleared = False
+    sent = False
+    priced = False
     while True:
-        await asyncio.sleep(600)
+        await asyncio.sleep(60)
+        if not cleared and datetime.now().hour >= 0:
+            clear_task()
+            cleared = True
+            sent = False
+            priced = False
+        elif not sent and datetime.now().hour >= 7:
+            if not priced:
+                pricing_task()
+                priced = True
+            else:
+                await daily_summary_task()
+                sent = True
+        elif datetime.now().hour >= 23:
+            cleared = False
         existing_titles = get_existing_titles()
         logging.info(f"Existing titles count: {len(existing_titles)}")
         new_docs = parse_newest_pages(stop_titles=existing_titles)
@@ -24,13 +41,12 @@ async def background_parse_task():
             logging.info("No new documents found by parser.")
 
 
-
-async def clear_task():
+def clear_task():
     cleared = clear_collection()
     delete_old_price_points()
     logging.info(f"Collection cleared: {cleared}, price collection updated.")
 
-async def pricing_task():
+def pricing_task():
     new_docs = parse_valuables()
     if new_docs:
         inserted_count = insert_prices((new_docs))
@@ -76,33 +92,6 @@ async def daily_summary_task():
     for user_id, enabled in user_daily_summaries.items():
         if enabled:
             await send_daily_summary(user_id)
-
-
-async def scheduler():
-    summary_sent_today = False
-    while True:
-        now = datetime.now().time()
-        if now.hour == 0:
-            await clear_task()
-            summary_sent_today = False
-            await asyncio.sleep(3700)
-        elif now.hour == 7:
-            yesterday = (datetime.now() - timedelta(days=1)).strftime("%d.%m.%y")
-            prices_for_today = get_prices_by_date(yesterday)
-            if prices_for_today and not summary_sent_today:
-                try:
-                    await daily_summary_task()
-                    summary_sent_today = True
-                except Exception as e:
-                    logging.error(f"Error during pricing or summary task: {e}")
-            elif not prices_for_today:
-                logging.info(f"No prices found for today, will retry summary later.")
-                await pricing_task()
-        else:
-            await asyncio.sleep(60)
-
-async def run_schedule():
-    await scheduler()
 
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=config.bot_token.get_secret_value(), default=DefaultBotProperties(parse_mode=ParseMode.HTML))
@@ -209,7 +198,6 @@ async def process_states(message: types.Message):
 
 if __name__ == "__main__":
     async def main():
-        asyncio.create_task(background_parse_task())
-        asyncio.create_task(run_schedule())
+        asyncio.create_task(background_task())
         await dp.start_polling(bot)
     asyncio.run(main())
