@@ -12,17 +12,17 @@ from parser import parse_newest_pages, parse_valuables
 from datetime import datetime, timedelta
 
 async def background_task():
-    cleared = False
-    sent = False
-    priced = False
+    cleared = True
+    sent = True
+    priced = True
     while True:
         await asyncio.sleep(60)
-        if not cleared and datetime.now().hour >= 0:
+        if not cleared and 0 <= datetime.now().hour < 23:
             clear_task()
             cleared = True
             sent = False
             priced = False
-        elif not sent and datetime.now().hour >= 7:
+        elif not sent and 7<= datetime.now().hour < 23:
             if not priced:
                 pricing_task()
                 priced = True
