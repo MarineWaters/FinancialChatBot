@@ -12,7 +12,7 @@ from parser import parse_newest_pages, parse_valuables
 from datetime import datetime, timedelta
 
 async def background_task():
-    cleared = False
+    cleared = True
     sent = False
     priced = False
     while True:
@@ -42,8 +42,8 @@ async def background_task():
                     logging.info(f"Inserted {inserted_count} new parsed documents.")
                 else:
                     logging.info("No new documents found by parser.")
-        except Exception:
-            logging.error("Encountered an error this cycle.")
+        except Exception as e:
+            logging.error(f"Encountered an error this cycle: {e}")
 
 
 def clear_task():
@@ -92,6 +92,7 @@ async def send_daily_summary(user_id: int):
         await bot.send_message(user_id, f"<b>Сводка новостей {cbr} на {selected_date}:</b>\n\n{valuables}\n{summary}", reply_markup=menu_kb)
     except Exception as e:
         logging.error(f"Failed to send daily summary to {user_id}: {e}")
+        raise e
 
 async def daily_summary_task():
     for user_id, enabled in user_daily_summaries.items():
