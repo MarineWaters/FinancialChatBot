@@ -12,33 +12,38 @@ from parser import parse_newest_pages, parse_valuables
 from datetime import datetime, timedelta
 
 async def background_task():
-    cleared = True
-    sent = True
-    priced = True
+    cleared = False
+    sent = False
+    priced = False
     while True:
         await asyncio.sleep(60)
-        if not cleared and 0 <= datetime.now().hour < 23:
-            clear_task()
-            cleared = True
-            sent = False
-            priced = False
-        elif not sent and 7<= datetime.now().hour < 23:
-            if not priced:
-                pricing_task()
-                priced = True
-            else:
-                await daily_summary_task()
-                sent = True
-        elif datetime.now().hour >= 23:
-            cleared = False
-        existing_titles = get_existing_titles()
-        logging.info(f"Existing titles count: {len(existing_titles)}")
-        new_docs = parse_newest_pages(stop_titles=existing_titles)
-        if new_docs:
-            inserted_count = insert_documents((new_docs))
-            logging.info(f"Inserted {inserted_count} new parsed documents.")
-        else:
-            logging.info("No new documents found by parser.")
+        try:
+            if not cleared and 0 <= datetime.now().hour < 23:
+                clear_task()
+                cleared = True
+                sent = False
+                priced = False
+            elif not sent and 7<= datetime.now().hour < 23:
+                if not priced:
+                    pricing_task()
+                    priced = True
+                else:
+                    await daily_summary_task()
+                    sent = True
+            elif datetime.now().hour >= 23:
+                cleared = False
+            try:
+                existing_titles = get_existing_titles()
+                logging.info(f"Existing titles count: {len(existing_titles)}")
+                new_docs = parse_newest_pages(stop_titles=existing_titles)
+            finally:
+                if new_docs:
+                    inserted_count = insert_documents((new_docs))
+                    logging.info(f"Inserted {inserted_count} new parsed documents.")
+                else:
+                    logging.info("No new documents found by parser.")
+        except Exception:
+            logging.error("Encountered an error this cycle.")
 
 
 def clear_task():
