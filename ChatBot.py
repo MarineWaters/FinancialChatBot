@@ -1,6 +1,8 @@
 from config_reader import config
 from ollama import summarize_news_list
 import asyncio
+import json
+from pathlib import Path
 import logging
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
@@ -10,6 +12,30 @@ from aiogram.client.default import DefaultBotProperties
 from qdrant import insert_documents, clear_collection, get_existing_titles, get_available_dates, get_documents_by_date, insert_prices, get_prices_by_date, delete_old_price_points
 from parser import parse_newest_pages, parse_valuables
 from datetime import datetime, timedelta
+
+subscribers = Path("daily_subs.json")
+sources = Path("showing_sources.json")
+
+def load_subs():
+    subs = {}
+    status = {}
+    if subscribers.exists():
+        try:
+            data_subscribers = json.load(subscribers.open("r"))
+            subs = {int(i):bool(j) for i,j in data_subscribers.items()}
+        except Exception as e:
+            logging.error(f"Failed to load subscribers: {e}")
+    if sources.exists():
+        try:
+            data_sources = json.load(sources.open("r"))
+            status = {int(i):bool(j) for i,j in data_sources.items()}
+        except Exception as e:
+            logging.error(f"Failed to load sources: {e}")
+    return subs, status
+    
+def save_subs(subs, status):
+    json.dump(subs, subscribers.open("w"))
+    json.dump(status, sources.open("w"))
 
 async def background_task():
     cleared = True
@@ -25,7 +51,8 @@ async def background_task():
                 priced = False
             elif not sent and 7<= datetime.now().hour < 23:
                 if not priced:
-                    pricing_task()
+                    if not get_prices_by_date((datetime.now() - timedelta(days=1)).strftime("%d.%m.%y")):
+                        pricing_task()
                     priced = True
                 else:
                     await daily_summary_task()
@@ -112,8 +139,7 @@ class BotStates:
 
 user_states = {}
 user_temp_data = {}
-user_daily_summaries = {}
-user_show_sources = {}
+user_daily_summaries, user_show_sources = load_subs()
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
@@ -128,6 +154,7 @@ async def cmd_daily(message: types.Message):
     current = user_daily_summaries.get(user_id, False)
     user_daily_summaries[user_id] = not current
     status = "включена" if user_daily_summaries[user_id] else "выключена"
+    save_subs(user_daily_summaries, user_show_sources)
     await message.answer(f"Ежедневная сводка новостей теперь {status}.")
 
 
@@ -137,6 +164,7 @@ async def cmd_statechange(message: types.Message):
     current_state = user_show_sources.get(user_id, True)
     user_show_sources[user_id] = not current_state
     state_str = "включено" if user_show_sources[user_id] else "выключено"
+    save_subs(user_daily_summaries, user_show_sources)
     await message.answer(f"Отображение источников в сводке новостей теперь {state_str}.")
 
 @dp.callback_query()
@@ -204,6 +232,11 @@ async def process_states(message: types.Message):
 
 if __name__ == "__main__":
     async def main():
-        asyncio.create_task(background_task())
-        await dp.start_polling(bot)
+        while True:
+            try:
+                asyncio.create_task(background_task())
+                await dp.start_polling(bot)
+            except Exception as e:
+                logging.error(f"Polling crashed: {e}")
+                await asyncio.sleep(5)
     asyncio.run(main())

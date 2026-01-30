@@ -43,12 +43,11 @@ def parse_newest_pages(stop_titles=None):
     return parsed_docs  
 
 def parse_valuables():
-    tickers = [("💲Доллар: ",16),("💶Евро: ",18),("🧧Юань: ",55)]
+    tickers = [("💲Доллар: ",15),("💶Евро: ",17),("🧧Юань: ",54)]
     tickers2 = [("💰Золото: ","GCUSD"),("🛢️ Нефть: ","BZUSD"),("🪙 Биткоин: ","BTCUSD")]
     valuables = "Курс ЦБ:\n"
     for t in tickers:
-        datetime.now().strftime("%d.%m.%Y")
-        response = requests.get(f'https://www.cbr.ru/currency_base/daily/?UniDbQuery.Posted=True&UniDbQuery.To={datetime.now().strftime("%d.%m.%Y")}')
+        response = requests.get(f'https://www.cbr.ru/currency_base/daily/')
         response.raise_for_status()
         valuables += f"{t[0]}₽{BeautifulSoup(response.text, 'lxml').find("table", {'class': 'data'}).find_all('tr')[t[1]].find_all('td')[4].get_text(strip=True)}\n"
     valuables+="\nКурс на 07:00 по МСК:\n"
