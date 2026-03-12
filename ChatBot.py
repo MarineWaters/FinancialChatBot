@@ -38,18 +38,12 @@ def save_subs(subs, status):
     json.dump(status, sources.open("w"))
 
 async def background_task():
-    cleared = True
-    sent = False
-    priced = False
+    sent = True
+    priced = True
     while True:
         await asyncio.sleep(60)
         try:
-            if not cleared and 0 <= datetime.now().hour < 23:
-                clear_task()
-                cleared = True
-                sent = False
-                priced = False
-            elif not sent and 7<= datetime.now().hour < 23:
+            if not sent and 7<= datetime.now().hour < 23:
                 if not priced:
                     if not get_prices_by_date((datetime.now() - timedelta(days=1)).strftime("%d.%m.%y")):
                         pricing_task()
@@ -58,19 +52,25 @@ async def background_task():
                     await daily_summary_task()
                     sent = True
             elif datetime.now().hour >= 23:
-                cleared = False
+                clear_task()
+                sent = False
+                priced = False
+            new_docs = None
             try:
                 existing_titles = get_existing_titles()
                 logging.info(f"Existing titles count: {len(existing_titles)}")
                 new_docs = parse_newest_pages(stop_titles=existing_titles)
-            finally:
-                if new_docs:
-                    inserted_count = insert_documents((new_docs))
-                    logging.info(f"Inserted {inserted_count} new parsed documents.")
-                else:
-                    logging.info("No new documents found by parser.")
+            except Exception as e:
+                logging.error(f"Parser error: {e}")
+                new_docs = None
+            if new_docs:
+                inserted_count = insert_documents((new_docs))
+                logging.info(f"Inserted {inserted_count} new parsed documents.")
+            else:
+                logging.info("No new documents found by parser.")
         except Exception as e:
             logging.error(f"Encountered an error this cycle: {e}")
+            continue
 
 
 def clear_task():
