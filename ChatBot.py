@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 
 subscribers = Path("daily_subs.json")
 sources = Path("showing_sources.json")
+last_daily_sent = None
 
 def load_subs():
     subs = {}
@@ -38,23 +39,27 @@ def save_subs(subs, status):
     json.dump(status, sources.open("w"))
 
 async def background_task():
-    sent = True
+    global last_daily_sent, priced
     priced = True
     while True:
         await asyncio.sleep(60)
+        now = datetime.now()
+        today_str = now.strftime("%d.%m.%y")   
         try:
-            if not sent and 7<= datetime.now().hour < 23:
-                if not priced:
-                    if not get_prices_by_date((datetime.now() - timedelta(days=1)).strftime("%d.%m.%y")):
-                        pricing_task()
-                    priced = True
-                else:
-                    await daily_summary_task()
-                    sent = True
-            elif datetime.now().hour >= 23:
+            if now.hour >= 23:
                 clear_task()
-                sent = False
+                last_daily_sent = None
                 priced = False
+                continue
+            if (7 <= now.hour < 23 and 
+                last_daily_sent != today_str and 
+                user_daily_summaries): 
+                if not priced:
+                    pricing_task()
+                    priced = True
+                await daily_summary_task()
+                last_daily_sent = today_str
+                logging.info(f"Daily summary sent for {today_str}")
             new_docs = None
             try:
                 existing_titles = get_existing_titles()
