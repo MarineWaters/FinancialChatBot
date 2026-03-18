@@ -4,11 +4,13 @@ from config_reader import config
 import asyncio
 import logging
 
-ollama_url = config.ollama_token.get_secret_value() + "/api/generate"
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+api_key = config.openrouter_key.get_secret_value() 
+headers = {
+    "Authorization": f"Bearer {api_key}",
+    "Content-Type": "application/json"}
 
-headers = {"Content-Type": "application/json"}
-
-async def ollama_answer(message, prompt = None):
+async def openrouter_answer(message, prompt = None):
     try:
         data = {
             "model": "gpt-oss:20b",
@@ -19,13 +21,20 @@ async def ollama_answer(message, prompt = None):
             }
         }
         loop = asyncio.get_running_loop()
+        payload = {
+            "model": 'meta-llama/Llama-3.1-8b-instruct:free',#"x-ai/grok-4.1-fast",
+            "messages": [{"role": "user", "content": prompt or f"Вот запрос пользователя: {message}. Ответь кратко и ёмко."}],
+            "max_tokens": 2000,
+            "temperature": 0.1,
+        }
+        
         response = await loop.run_in_executor(
             None,
-            lambda: requests.post(ollama_url, headers=headers, data=json.dumps(data))
+            lambda: requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=30)
         )
-        response.raise_for_status() 
-        result = response.json()
-        return result['response']
+        response.raise_for_status()
+        data = response.json()
+        return data['choices'][0]['message']['content'].strip()
     except Exception:
         return "Ошибка подключения"
     
@@ -53,7 +62,7 @@ async def summarize_news_list(news_list):
     attempts = 0
     while attempts < 5:
         try:
-            nums = await ollama_answer("", prompt=choosing)
+            nums = await openrouter_answer("", prompt=choosing)
             logging.info(nums)
             numbers = [int(i) for i in nums.split()]
             break
@@ -99,7 +108,7 @@ async def summarize_news_list(news_list):
     for n in numbers:
         news = news_list[n]
         context = f"Заголовок: {news.get('title','')}, Содержание: {news.get('content','')}"
-        answer = await ollama_answer("", prompt=summarizing + context)
+        answer = await openrouter_answer("", prompt=summarizing + context)
         source = news.get('source','')
         if source:
             answers+=f"{answer}\nИсточник: {source}\n\n"
