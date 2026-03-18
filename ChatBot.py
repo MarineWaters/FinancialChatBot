@@ -13,6 +13,7 @@ from qdrant import insert_documents, clear_collection, get_existing_titles, get_
 from parser import parse_newest_pages, parse_valuables
 from datetime import datetime, timedelta
 
+<<<<<<< HEAD
 subscribers = Path("daily_subs.json")
 sources = Path("showing_sources.json")
 last_daily_sent = None
@@ -37,6 +38,9 @@ def load_subs():
 def save_subs(subs, status):
     json.dump(subs, subscribers.open("w"))
     json.dump(status, sources.open("w"))
+=======
+last_daily_sent = None
+>>>>>>> c46c39c (Removing usage of json files)
 
 async def background_task():
     global last_daily_sent, priced
@@ -144,7 +148,8 @@ class BotStates:
 
 user_states = {}
 user_temp_data = {}
-user_daily_summaries, user_show_sources = load_subs()
+user_daily_summaries = {}
+user_show_sources = {}
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
@@ -159,7 +164,6 @@ async def cmd_daily(message: types.Message):
     current = user_daily_summaries.get(user_id, False)
     user_daily_summaries[user_id] = not current
     status = "включена" if user_daily_summaries[user_id] else "выключена"
-    save_subs(user_daily_summaries, user_show_sources)
     await message.answer(f"Ежедневная сводка новостей теперь {status}.")
 
 
@@ -169,7 +173,6 @@ async def cmd_statechange(message: types.Message):
     current_state = user_show_sources.get(user_id, True)
     user_show_sources[user_id] = not current_state
     state_str = "включено" if user_show_sources[user_id] else "выключено"
-    save_subs(user_daily_summaries, user_show_sources)
     await message.answer(f"Отображение источников в сводке новостей теперь {state_str}.")
 
 @dp.callback_query()
