@@ -13,34 +13,7 @@ from qdrant import insert_documents, clear_collection, get_existing_titles, get_
 from parser import parse_newest_pages, parse_valuables
 from datetime import datetime, timedelta
 
-<<<<<<< HEAD
-subscribers = Path("daily_subs.json")
-sources = Path("showing_sources.json")
 last_daily_sent = None
-
-def load_subs():
-    subs = {}
-    status = {}
-    if subscribers.exists():
-        try:
-            data_subscribers = json.load(subscribers.open("r"))
-            subs = {int(i):bool(j) for i,j in data_subscribers.items()}
-        except Exception as e:
-            logging.error(f"Failed to load subscribers: {e}")
-    if sources.exists():
-        try:
-            data_sources = json.load(sources.open("r"))
-            status = {int(i):bool(j) for i,j in data_sources.items()}
-        except Exception as e:
-            logging.error(f"Failed to load sources: {e}")
-    return subs, status
-    
-def save_subs(subs, status):
-    json.dump(subs, subscribers.open("w"))
-    json.dump(status, sources.open("w"))
-=======
-last_daily_sent = None
->>>>>>> c46c39c (Removing usage of json files)
 
 async def background_task():
     global last_daily_sent, priced
