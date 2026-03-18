@@ -1,5 +1,5 @@
 from config_reader import config
-from ollama import summarize_news_list
+from openrouter import summarize_news_list
 import asyncio
 import json
 from pathlib import Path
