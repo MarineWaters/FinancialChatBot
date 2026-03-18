@@ -12,17 +12,9 @@ headers = {
 
 async def openrouter_answer(message, prompt = None):
     try:
-        data = {
-            "model": "gpt-oss:20b",
-            "prompt": prompt or "Вот запрос пользователя: "+message+". Ответь кратко и ёмко.",
-            "stream": False,
-            "options": {
-                "num_thread": 8,
-            }
-        }
         loop = asyncio.get_running_loop()
         payload = {
-            "model": 'meta-llama/Llama-3.1-8b-instruct:free',#"x-ai/grok-4.1-fast",
+            "model": 'qwen/qwen3-next-80b-a3b-instruct:free',#"x-ai/grok-4.1-fast",
             "messages": [{"role": "user", "content": prompt or f"Вот запрос пользователя: {message}. Ответь кратко и ёмко."}],
             "max_tokens": 2000,
             "temperature": 0.1,
